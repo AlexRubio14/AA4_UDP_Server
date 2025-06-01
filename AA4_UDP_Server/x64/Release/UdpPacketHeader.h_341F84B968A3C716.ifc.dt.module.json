@@ -1,0 +1,22 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "x64\\Release\\UdpPacketHeader.obj",
+            "outputs": [
+                "x64\\Release\\UdpPacketHeader.h_341F84B968A3C716.ifc.dt.module.json",
+                "x64\\Release\\UdpPacketHeader.h_341F84B968A3C716.ifc.dt.d.json",
+                "x64\\Release\\UdpPacketHeader.h.ifc"
+            ],
+            "provides": [
+                {
+                    "logical-name": "C:\\Users\\alexr\\OneDrive\\Desktop\\AA4_UDP_Server\\AA4_UDP_Server\\UdpPacketHeader.h",
+                    "source-path": "c:\\users\\alexr\\onedrive\\desktop\\aa4_udp_server\\aa4_udp_server\\udppacketheader.h",
+                    "lookup-method": "absolute"
+                }
+            ],
+            "requires": []
+        }
+    ]
+}
