@@ -1,38 +1,75 @@
 #include "CustomUDPPacket.h"
 #include <iostream>
 
-CustomUDPPacket::CustomUDPPacket(UdpPacketType udpType, PacketType type)
-	: udpType(udpType), type(type), bufferSize(0) {}
+CustomUDPPacket::CustomUDPPacket(UdpPacketType udpType, PacketType type, int playerId)
+{
+    bufferSize = 0;
+	payloadOffset = 0;
+
+    this->type = type;
+    this->udpType = udpType;
+    this->playerId = playerId;
+
+    WriteVariable(static_cast<uint8_t>(udpType));
+    WriteVariable(static_cast<uint8_t>(type));
+    WriteVariable(playerId);
+
+    payloadOffset = bufferSize;
+}
 
 void CustomUDPPacket::ReadBuffer(const char* inputBuffer, size_t _bufferSize)
 {
-	size_t offset = 0;
+    size_t offset = 0;
 
-	// Copiamos todo el paquete al buffer interno, incluyendo cabecera y payload
-	std::memcpy(buffer, inputBuffer, _bufferSize);
-	bufferSize = _bufferSize;
+    // Copiamos todo el paquete al buffer interno, incluyendo cabecera y payload
+    std::memcpy(buffer, inputBuffer, _bufferSize);
+    bufferSize = _bufferSize;
 
-	ReadVariable(udpType, offset);
-	ReadVariable(type, offset);
+	uint8_t _udpType = 0;
+	uint8_t _type = 0;
 
-	payloadOffset = offset; 
+    ReadVariable(_udpType, offset);
+    ReadVariable(_type, offset);
+    ReadVariable(playerId, offset);
 
-	std::cout << "UdpType: " << static_cast<int>(udpType) << " Type: " << static_cast<int>(type) << std::endl;
+	udpType = static_cast<UdpPacketType>(_udpType);
+	type = static_cast<PacketType>(_type);
+
+    payloadOffset = offset;
 }
 
 bool CustomUDPPacket::WriteString(const std::string& str)
 {
-	uint16_t length = static_cast<uint16_t>(str.size());
-	// Primero escribimos el tamaño
-	if (!WriteVariable(length))
-		return false;
+	// Check if there is enough space in the buffer for the lenght data
+    int length = static_cast<int>(str.size());
+    if (!WriteVariable(length))
+        return false;
 
-	// Ahora escribimos los caracteres (sin '\0')
-	if (bufferSize + length > sizeof(buffer))
-		return false;
+	// Check if there is enough space in the buffer for the string data
+    if (bufferSize + length > sizeof(buffer))
+        return false;
 
-	std::memcpy(buffer + bufferSize, str.data(), length);
-	bufferSize += length;
+	// Copy the string data into the buffer
+    std::memcpy(buffer + bufferSize, str.data(), length);
+    bufferSize += length;
 
-	return true;
+    return true;
+}
+
+bool CustomUDPPacket::ReadString(std::string& outStr, size_t& offset) const {
+    int length = 0;
+
+	// Read size of the string
+    if (!ReadVariable(length, offset))
+        return false;
+
+	// Check if the length is valid
+    if (offset + length > bufferSize)
+        return false;
+
+    // Read the string data
+    outStr.assign(buffer + offset, length);
+    offset += length;
+
+    return true;
 }

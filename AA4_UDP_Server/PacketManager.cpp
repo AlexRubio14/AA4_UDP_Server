@@ -1,26 +1,137 @@
 #include "PacketManager.h"
 #include <iostream>
 #include "EventManager.h"
+#include "RoomManager.h"
+#include "CriticalPacketManager.h"
 
 void PacketManager::Init(sf::UdpSocket* _serverSocket)
 {
 	serverSocket = _serverSocket;
 
-	EVENT_MANAGER.UDPSubscribe(PacketType::ACK, [this](CustomUDPPacket& packet) {
+	EVENT_MANAGER.UDPSubscribe(PacketType::SEND_ACK, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
 
-		int num = 0;
-		packet.ReadVariable(num, packet.payloadOffset);
-		std::cout << num << std::endl;
+		int criticalPacketId = 0;
+		packet.ReadVariable(criticalPacketId, packet.payloadOffset);
+
+		// Create ACK packet
+		CustomUDPPacket ackPacket(UdpPacketType::NORMAL, PacketType::RECEIVE_ACK, packet.playerId);
+		ackPacket.WriteVariable(criticalPacketId);
+		SendPacketToClient(ackPacket, senderIpAdress, senderPort);
 	});
+
+	EVENT_MANAGER.UDPSubscribe(PacketType::RECEIVE_ACK, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		int criticalPacketId = 0;
+		packet.ReadVariable(criticalPacketId, packet.payloadOffset);
+		std::cout << "ACK received for critical packet ID: " << criticalPacketId << std::endl;
+		// Notify CriticalPacketManager that ACK was received
+		auto it = inGameClients.find(packet.playerId);
+
+		if (it == inGameClients.end())
+		{
+			std::cerr << "ACK received from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+
+		it->second->OnACKReceived(criticalPacketId);
+	});
+
+	EVENT_MANAGER.UDPSubscribe(PacketType::MATCH_FOUND, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		// Create new room
+		std::shared_ptr<Room> newRoom = ROOM_MANAGER.CreateRoom();
+
+		// Read data from packet to init the client (ip, port, playerId)
+		int playerId;
+
+		for (int i = 0; i < 2; i++)
+		{
+			packet.ReadVariable(playerId, packet.payloadOffset);
+
+			//Create new Client, add to Room and insert new client into ingameClients map
+			std::shared_ptr<Client> player = std::make_shared<Client>(playerId);
+			ROOM_MANAGER.JoinRoom(newRoom, player);
+			inGameClients.insert({ player->GetId(), player});
+
+			std::cout << "Se ha creado un cliente con la id: " << player->GetId();
+		}
+
+		std::cout << inGameClients.size() << std::endl;
+	});
+
+	EVENT_MANAGER.UDPSubscribe(PacketType::SEND_POSITION, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received SEND_POSITION packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		std::shared_ptr<Client> client = it->second;
+
+		int movementId;
+		float x, y;
+
+		packet.ReadVariable(movementId, packet.payloadOffset);
+		packet.ReadVariable(x, packet.payloadOffset);
+		packet.ReadVariable(y, packet.payloadOffset);
+
+		client->AddPositionPacket(movementId, x, y);
+		});
+
+	EVENT_MANAGER.UDPSubscribe(START_GAME, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);	
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received START_GAME packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		it->second->AddPacketToSend(packet, senderIpAdress, senderPort);
+
+		 auto roomIt = ROOM_MANAGER.FindRoomById(it->second->GetRoomId());
+
+		 if (roomIt == ROOM_MANAGER.GetRooms().end())
+		 {
+			 std::cerr << "Room with ID " << it->second->GetRoomId() << " not found." << std::endl;
+			 return; // Room not found, ignore the packet
+		 }
+
+		 roomIt->get()->Start();
+		});
+
+	EVENT_MANAGER.UDPSubscribe(PacketType::SEND_CLIENT_INFORMATION, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+
+		auto it = inGameClients.find(packet.playerId);
+
+		if (it == inGameClients.end())
+		{
+			std::cout << "the client with id: " << packet.playerId << " does not exist" << std::endl;
+			return;
+		}
+
+		std::shared_ptr<Client> client = inGameClients[packet.playerId];
+		client->SetIp(senderIpAdress);
+		client->SetPort(senderPort);
+
+		client->AddPlayerReady();
+		std::cout << "Saved new network client data" << senderIpAdress << senderPort << std::endl;
+		});
 }
 
-void PacketManager::ProcessUDPReceivedPacket(CustomUDPPacket& customPacket)
+void PacketManager::ProcessUDPReceivedPacket(CustomUDPPacket& customPacket, sf::IpAddress senderIpAdress, int senderPort)
 {
 	if (customPacket.udpType == UdpPacketType::CRITIC)
-		EVENT_MANAGER.UDPEmit(ACK, customPacket);
+	{
+		auto it = inGameClients.find(customPacket.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received critical packet from unknown player ID: " << customPacket.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
 
-	std::cout << customPacket.type << std::endl;
-	EVENT_MANAGER.UDPEmit(customPacket.type, customPacket);
+		it->second->AddCriticalPacketIdToSet(customPacket, senderIpAdress, senderPort);
+		EVENT_MANAGER.UDPEmit(SEND_ACK, customPacket, senderIpAdress, senderPort);
+	}
+
+	std::cout << static_cast<int>(customPacket.type) << std::endl;
+	EVENT_MANAGER.UDPEmit(customPacket.type, customPacket, senderIpAdress, senderPort);
 	
 }
 

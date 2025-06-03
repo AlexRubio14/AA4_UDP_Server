@@ -14,12 +14,12 @@
 class EventManager
 {
 public:
-    using UDPCallback = std::function<void(CustomUDPPacket&)>;
+    using UDPCallback = std::function<void(CustomUDPPacket&, sf::IpAddress, int)>;
 
 
     void UDPSubscribe(const PacketType type, UDPCallback callback);
 
-    void UDPEmit(const PacketType type, CustomUDPPacket customPacket);
+    void UDPEmit(const PacketType type, CustomUDPPacket customPacket, sf::IpAddress senderIpAdress, int senderPort);
 
     static EventManager& Instance();
 

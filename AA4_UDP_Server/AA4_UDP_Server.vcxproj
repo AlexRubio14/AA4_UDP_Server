@@ -136,18 +136,24 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Client.cpp" />
+    <ClCompile Include="CriticalPacketManager.cpp" />
     <ClCompile Include="CustomUDPPacket.cpp" />
     <ClCompile Include="EventManager.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="PacketManager.cpp" />
+    <ClCompile Include="Room.cpp" />
+    <ClCompile Include="RoomManager.cpp" />
     <ClCompile Include="Server.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Client.h" />
+    <ClInclude Include="CriticalPacketManager.h" />
     <ClInclude Include="CustomUDPPacket.h" />
     <ClInclude Include="EventManager.h" />
     <ClInclude Include="PacketManager.h" />
     <ClInclude Include="PacketType.h" />
+    <ClInclude Include="Room.h" />
+    <ClInclude Include="RoomManager.h" />
     <ClInclude Include="Server.h" />
     <ClInclude Include="UDPPacketType.h" />
   </ItemGroup>
