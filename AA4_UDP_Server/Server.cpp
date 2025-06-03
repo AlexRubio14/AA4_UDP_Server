@@ -2,6 +2,7 @@
 #include <optional>
 #include "CustomUDPPacket.h"
 #include "PacketManager.h"
+#include "CriticalPacketManager.h"
 Server::Server()
 {
 	socket = std::make_unique<sf::UdpSocket>();
@@ -30,6 +31,7 @@ void Server::Start()
 
 	// Setup Managers
 	PACKET_MANAGER.Init(socket.get());
+	CRITICAL_PACKET_MANAGER.StartCriticalPacketUpdateThread();
 }
 
 void Server::Update()
@@ -41,12 +43,12 @@ void Server::Update()
 
 		if (socket->receive(serverBuffer, sizeof(serverBuffer), receivedBufferSize, senderIP, port) == sf::Socket::Status::Done)
 		{
-			std::cout << "Received packet from " << senderIP.value() << " : " << port << std::endl;
+			//std::cout << "Received packet from " << senderIP.value() << " : " << port << std::endl;
 			CustomUDPPacket customUDPPacket;
 			customUDPPacket.ReadBuffer(serverBuffer, receivedBufferSize);
 
 			//Packet Manager procesa el paquete
-			PACKET_MANAGER.ProcessUDPReceivedPacket(customUDPPacket);
+			PACKET_MANAGER.ProcessUDPReceivedPacket(customUDPPacket, *senderIP, port);
 
 
 

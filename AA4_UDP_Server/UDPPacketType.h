@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 
 enum class UdpPacketType : uint8_t { NORMAL = 0b00000000, URGENT = 0b00000001, CRITIC = 0b00000010 };
 

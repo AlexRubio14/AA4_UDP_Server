@@ -2,7 +2,8 @@
 #include <SFML/Network.hpp>
 #include <iostream>
 #include <memory>
-
+#include <unordered_map>
+#include "Client.h"
 #define LISTENER_PORT 55002
 
 class Server {
