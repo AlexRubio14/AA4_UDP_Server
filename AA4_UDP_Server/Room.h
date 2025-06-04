@@ -33,6 +33,8 @@ public:
 	void Start();
 	void Update();
 
+	void FinishRoom();
+
 
 	inline int GetId() const { return id; }
 	inline void SetId(const int id) { this->id = id; }

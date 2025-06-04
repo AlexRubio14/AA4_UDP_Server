@@ -181,12 +181,24 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 			client->GetOpponentClient()->Respawn(movementId, x, y);
 		}
 
-		CustomUDPPacket stopShootPacket(UdpPacketType::CRITIC, RECEIVE_RESPAWN, client->GetId());
-		CustomUDPPacket newPacket = client->GetOpponentClient()->AddCriticalPacketToSend(stopShootPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
-		newPacket.WriteVariable(value);
-		newPacket.WriteVariable(lives);
-		std::cout << "las vidas del jugador son:" << criticalId << " " << value<< " " << movementId << " " << x << " " << y << " " << lives << std::endl;
-		SendPacketToClient(newPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+		if (lives == 0) {
+
+			CustomUDPPacket gameOverPacket(UdpPacketType::NORMAL, END_GAME, client->GetId());
+			gameOverPacket.WriteVariable(value);
+			gameOverPacket.WriteVariable(lives);
+			SendPacketToClient(gameOverPacket, client->GetIp(), client->GetPort());
+			SendPacketToClient(gameOverPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+
+			ROOM_MANAGER.DeleteRoom(client->GetRoomId());
+		}
+		else {
+			CustomUDPPacket stopShootPacket(UdpPacketType::CRITIC, RECEIVE_RESPAWN, client->GetId());
+			CustomUDPPacket newPacket = client->GetOpponentClient()->AddCriticalPacketToSend(stopShootPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+			newPacket.WriteVariable(value);
+			newPacket.WriteVariable(lives);
+			std::cout << "las vidas del jugador son:" << criticalId << " " << value << " " << movementId << " " << x << " " << y << " " << lives << std::endl;
+			SendPacketToClient(newPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+		}
 
 		});
 }

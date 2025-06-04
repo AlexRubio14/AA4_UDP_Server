@@ -13,6 +13,7 @@ Room::~Room()
 {
 	std::cout << "Room erased" << std::endl;
 	running = false;
+	clients.clear();
 }
 
 void Room::AddClient(std::shared_ptr<Client> client)
@@ -84,5 +85,13 @@ void Room::Update()
 			if (clients[i])
 				clients[i]->ValidateClientMovements(i);
 		}
+	}
+}
+
+void Room::FinishRoom()
+{
+	for (std::shared_ptr<Client> client : clients)
+	{
+		delete client.get(); // Assuming clients are dynamically allocated
 	}
 }
