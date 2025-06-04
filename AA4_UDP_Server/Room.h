@@ -9,7 +9,7 @@ class Room
 {
 private:
 
-	const sf::Time interval = sf::seconds(0.5);
+	const sf::Time interval = sf::seconds(0.2);
 
 	int id;
 	std::vector<std::shared_ptr<Client>> clients;
