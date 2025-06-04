@@ -10,9 +10,9 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 
 	EVENT_MANAGER.UDPSubscribe(PacketType::SEND_ACK, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
 
-		int criticalPacketId = 0;
+		int criticalPacketId;
 		packet.ReadVariable(criticalPacketId, packet.payloadOffset);
-
+		//std::cout << "ACK sent for critical packet ID: " << criticalPacketId << std::endl;
 		// Create ACK packet
 		CustomUDPPacket ackPacket(UdpPacketType::NORMAL, PacketType::RECEIVE_ACK, packet.playerId);
 		ackPacket.WriteVariable(criticalPacketId);
@@ -83,7 +83,8 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 			std::cerr << "Received START_GAME packet from unknown player ID: " << packet.playerId << std::endl;
 			return; // Player not found, ignore the packet
 		}
-		it->second->AddPacketToSend(packet, senderIpAdress, senderPort);
+
+		it->second->AddCriticalPacketToSend(packet, senderIpAdress, senderPort);
 
 		 auto roomIt = ROOM_MANAGER.FindRoomById(it->second->GetRoomId());
 
@@ -113,6 +114,70 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 		client->AddPlayerReady();
 		std::cout << "Saved new network client data" << senderIpAdress << senderPort << std::endl;
 		});
+
+	EVENT_MANAGER.UDPSubscribe(SEND_MOCKERY, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received SEND_MOCKERY packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		std::shared_ptr<Client> client = it->second;
+		CustomUDPPacket mockeryPacket(UdpPacketType::CRITIC, RECEIVE_MOCKERY, client->GetId());
+		
+		client->GetOpponentClient()->SendPacketToOpponent(mockeryPacket);
+		});
+
+	EVENT_MANAGER.UDPSubscribe(SEND_START_SHOOT, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received SEND_START_SHOOTING packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		std::shared_ptr<Client> client = it->second;
+		CustomUDPPacket startShootPacket(UdpPacketType::CRITIC, RECEIVE_START_SHOOT, client->GetId());
+		client->GetOpponentClient()->SendPacketToOpponent(startShootPacket);
+		});
+
+	EVENT_MANAGER.UDPSubscribe(SEND_STOP_SHOOT, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received SEND_STOP_SHOOTING packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		std::shared_ptr<Client> client = it->second;
+		CustomUDPPacket stopShootPacket(UdpPacketType::CRITIC, RECEIVE_STOP_SHOOT, client->GetId());
+		client->GetOpponentClient()->SendPacketToOpponent(stopShootPacket);
+		});
+
+	EVENT_MANAGER.UDPSubscribe(RESPAWN, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received RESPAWN packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+
+		int criticalId, movementId;
+		bool value;
+		float x, y;
+
+		packet.ReadVariable(criticalId, packet.payloadOffset);
+		packet.ReadVariable(value, packet.payloadOffset);
+		packet.ReadVariable(movementId, packet.payloadOffset);
+		packet.ReadVariable(x, packet.payloadOffset);
+		packet.ReadVariable(y, packet.payloadOffset);
+
+		std::shared_ptr<Client> client = it->second;
+		if (value) {
+			client->Respawn(movementId, x, y);
+		} else {
+			client->GetOpponentClient()->Respawn(movementId, x, y);
+		}
+
+		});
 }
 
 void PacketManager::ProcessUDPReceivedPacket(CustomUDPPacket& customPacket, sf::IpAddress senderIpAdress, int senderPort)
@@ -130,7 +195,7 @@ void PacketManager::ProcessUDPReceivedPacket(CustomUDPPacket& customPacket, sf::
 		EVENT_MANAGER.UDPEmit(SEND_ACK, customPacket, senderIpAdress, senderPort);
 	}
 
-	std::cout << static_cast<int>(customPacket.type) << std::endl;
+	//std::cout << static_cast<int>(customPacket.type) << std::endl;
 	EVENT_MANAGER.UDPEmit(customPacket.type, customPacket, senderIpAdress, senderPort);
 	
 }
@@ -144,7 +209,7 @@ void PacketManager::SendPacketToClient(CustomUDPPacket& responsePacket, sf::IpAd
 
 	if(status == sf::Socket::Status::Done)
 	{
-		std::cout << "Packet sent to " << ipAdress.toString() << ":" << port << std::endl;
+		//std::cout << "Packet sent to " << ipAdress.toString() << ":" << port << std::endl;
 	}
 	else
 	{

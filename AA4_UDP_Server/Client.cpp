@@ -20,11 +20,13 @@ void Client::AddPlayerReady()
 	ROOM_MANAGER.FindRoomById(roomId)->get()->CheckIfAllPlayersReady();
 }
 
-void Client::AddCriticalPacketIdToSet(CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port)
+void Client::AddCriticalPacketIdToSet(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port)
 {
 	std::lock_guard<std::mutex> lock(packetMutex);
 	int id;
-	id = packet.ReadVariable(id, packet.payloadOffset); // Read the packet ID from the packet
+
+	CustomUDPPacket packetCopy = packet; // Create a copy of the packet to read the ID
+	id = packetCopy.ReadVariable(id, packetCopy.payloadOffset); // Read the packet ID from the packet
 	if (criticalPacketsIdReceived.find(id) != criticalPacketsIdReceived.end())
 	{
 		std::cerr << "Critical packet with ID " << id << " already exists in received set." << std::endl;
@@ -34,16 +36,21 @@ void Client::AddCriticalPacketIdToSet(CustomUDPPacket& packet, sf::IpAddress tar
 	criticalPacketsIdReceived.insert(id); // Add the ID to the set of received critical packets
 }
 
-void Client::AddPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port)
+void Client::AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port)
 {
 	std::lock_guard<std::mutex> lock(packetMutex);
-	int id = packetCounter++;
+	int id = packetCounter;
 
 	CustomUDPPacket packetCopy = packet; // Create a copy of the packet
+	packetCopy.WriteVariable(id); // Write the packet ID into the packet
 
 	pendingPacketsToSend.emplace(id, CriticalPacket(packetCopy, id, targetAdress, port));
 
 	PACKET_MANAGER.SendPacketToClient(packetCopy, targetAdress, port);
+
+	std::cout << id <<std::endl;
+
+	packetCounter++;
 }
 
 void Client::AddPositionPacket(int movementId, int x, int y)
@@ -54,23 +61,30 @@ void Client::AddPositionPacket(int movementId, int x, int y)
 void Client::CriticalPacketsUpdate(float deltaTime)
 {
 	std::lock_guard<std::mutex> lock(packetMutex);
-	for (auto& [id, criticalPacket] : pendingPacketsToSend)
+	for (auto it = pendingPacketsToSend.begin(); it != pendingPacketsToSend.end(); )
 	{
+		CriticalPacket& criticalPacket = it->second;
 		criticalPacket.timeSinceLastSend += deltaTime;
+
 		if (criticalPacket.timeSinceLastSend >= criticalPacket.resendDelay)
 		{
-			if (criticalPacket.resendAttempts < 8) // Max 3 resend attempts
+			if (criticalPacket.resendAttempts < 8)
 			{
 				PACKET_MANAGER.SendPacketToClient(criticalPacket.packet, criticalPacket.targetIp, criticalPacket.targetPort);
 				criticalPacket.resendAttempts++;
 				criticalPacket.timeSinceLastSend = 0.0f;
-				criticalPacket.resendDelay = std::min(criticalPacket.resendDelay * 2.0f, 5.0f); // Exponential backoff, max 5 seconds
+				criticalPacket.resendDelay = std::min(criticalPacket.resendDelay * 2.0f, 5.0f);
+				++it;
 			}
 			else
 			{
-				//TODO: desconectar al cliente si no se recibe ACK después de 3 intentos
-				pendingPacketsToSend.erase(id); // Remove packet after max attempts
+				std::cout << "[CriticalPackets] Max resend attempts reached, erasing packet ID: " << it->first << std::endl;
+				it = pendingPacketsToSend.erase(it); //
 			}
+		}
+		else
+		{
+			++it;
 		}
 	}
 }
@@ -78,13 +92,22 @@ void Client::CriticalPacketsUpdate(float deltaTime)
 void Client::OnACKReceived(int packetId)
 {
 	std::lock_guard<std::mutex> lock(packetMutex);
-	pendingPacketsToSend.erase(packetId); // Remove the packet from pending packets on ACK
-
-	std::cout << "ACK received from client with id :" << packetId << " erased " << std::endl;
+	auto it = pendingPacketsToSend.find(packetId);
+	if (it != pendingPacketsToSend.end())
+	{
+		pendingPacketsToSend.erase(it);
+		std::cout << "[ACK] Packet ID " << packetId << " erased from pendingPacketsToSend" << std::endl;
+	}
+	else
+	{
+		std::cout << "[ACK] Packet ID " << packetId << " NOT found in pendingPacketsToSend" << std::endl;
+	}
 }
 
 void Client::ValidateClientMovements(int playerId)
 {
+	std::lock_guard<std::mutex> lock(positionMutex);
+
 	// std::cout << "[Server] Validating movements for player " << playerId << std::endl;
 	if (positionPackets.empty())
 		return;
@@ -133,9 +156,10 @@ void Client::ValidateClientMovements(int playerId)
 				interpolationPacket.WriteVariable(packet.x);
 				interpolationPacket.WriteVariable(packet.y);
 				PACKET_MANAGER.SendPacketToClient(interpolationPacket, opponentClient->GetIp(), opponentClient->GetPort());
-				std::cout << "[Server] Sending interpolation packet for player " << playerId
+				
+				/*std::cout << "[Server] Sending interpolation packet for player " << playerId
 					<< " with movement ID " << packet.movementId
-					<< " to opponent at " << opponentClient->GetIp() << ":" << opponentClient->GetPort() << std::endl;
+					<< " to opponent at " << opponentClient->GetIp() << ":" << opponentClient->GetPort() << std::endl;*/
 			}
 
 			positionPackets.clear();
@@ -150,7 +174,7 @@ void Client::ValidateClientMovements(int playerId)
 	CustomUDPPacket validated(UdpPacketType::NORMAL, VALIDATION_OK, playerId);
 	PACKET_MANAGER.SendPacketToClient(validated, ipAddress, port);
 
-	std::cout << "ALL POSITIONS VALID" << std::endl;
+	//std::cout << "ALL POSITIONS VALID" << std::endl;
 
 	for (const PositionPacket& packet : validPackets)
 	{
@@ -159,9 +183,10 @@ void Client::ValidateClientMovements(int playerId)
 		interpolationPacket.WriteVariable(packet.x);
 		interpolationPacket.WriteVariable(packet.y);
 		PACKET_MANAGER.SendPacketToClient(interpolationPacket, opponentClient->GetIp(), opponentClient->GetPort());
-		std::cout << "[Server] Sending interpolation packet for player " << playerId
+		
+		/*std::cout << "[Server] Sending interpolation packet for player " << playerId
 			<< " with movement ID " << packet.movementId
-			<< " to opponent at " << opponentClient->GetIp() << ":" << opponentClient->GetPort() << std::endl;
+			<< " to opponent at " << opponentClient->GetIp() << ":" << opponentClient->GetPort() << std::endl;*/
 	}
 	
 
@@ -169,4 +194,19 @@ void Client::ValidateClientMovements(int playerId)
 	PositionPacket last = validPackets.back();
 	positionPackets.clear();
 	positionPackets.push_back(last);
+}
+
+void Client::SendPacketToOpponent(CustomUDPPacket& packet)
+{
+	AddCriticalPacketToSend(packet, ipAddress, port);
+}
+
+void Client::Respawn(int movementId, float x, float y)
+{
+	sf::Vector2f newPos(x, y);
+	position = newPos;
+
+	std::lock_guard lock(positionMutex);
+	positionPackets.clear();
+	positionPackets.push_back(PositionPacket(movementId, x, y));
 }

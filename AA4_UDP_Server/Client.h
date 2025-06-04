@@ -21,10 +21,10 @@ class Client
 {
 private: 
 
-	const float MAX_SPEED_X = 100.f;
-	const float MAX_SPEED_Y = 400.f;   // depende de tu jumpForce y gravedad //Tolerancia para proabr con alex 280
+	const float MAX_SPEED_X = 150.f;
+	const float MAX_SPEED_Y = 500.f;   // depende de tu jumpForce y gravedad //Tolerancia para proabr con alex 280
 	const float TOLERANCE = 5.f;
-	const float TIME_PER_PACKET = 0.1f;
+	const float TIME_PER_PACKET = 0.05f;
 
 	sf::Vector2f position;
 	int health;
@@ -48,6 +48,7 @@ private:
 	std::vector<PositionPacket> positionPackets = {};
 
 	std::mutex packetMutex;
+	std::mutex positionMutex;
 	int packetCounter = 0;
 
 	std::shared_ptr<Client> opponentClient;
@@ -58,8 +59,8 @@ public:
 
 	void AddPlayerReady();
 
-	void AddCriticalPacketIdToSet(CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
-	void AddPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
+	void AddCriticalPacketIdToSet(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
+	void AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
 
 	void AddPositionPacket(int movementId, int x, int y);
 
@@ -71,12 +72,17 @@ public:
 
 	void ValidateClientMovements(int playerId);
 
+	void SendPacketToOpponent(CustomUDPPacket& packet);
+
+	void Respawn(int movementId, float x, float y);
+
 	inline int GetRoomId() const { return roomId; }
 	inline sf::IpAddress GetIp() const { return ipAddress; }
 	inline int GetPort() const { return port; }
 	inline bool GetIsreadyToPlay() const { return isReadyToPlay; }
 	inline int GetId() const { return playerId; }
 	inline std::vector<PositionPacket> GetPositionPackets() const { return positionPackets; }
+	inline std::shared_ptr<Client> GetOpponentClient() const { return opponentClient; }
 
 	inline void SetIp(const sf::IpAddress& ip) { this->ipAddress = ip; }
 	inline void SetPort(const int port) { this->port = port; }
