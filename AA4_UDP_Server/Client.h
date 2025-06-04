@@ -60,7 +60,7 @@ public:
 	void AddPlayerReady();
 
 	void AddCriticalPacketIdToSet(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
-	void AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
+	CustomUDPPacket AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port);
 
 	void AddPositionPacket(int movementId, int x, int y);
 

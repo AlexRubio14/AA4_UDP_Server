@@ -36,7 +36,7 @@ void Client::AddCriticalPacketIdToSet(const CustomUDPPacket& packet, sf::IpAddre
 	criticalPacketsIdReceived.insert(id); // Add the ID to the set of received critical packets
 }
 
-void Client::AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port)
+CustomUDPPacket Client::AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddress targetAdress, unsigned short port)
 {
 	std::lock_guard<std::mutex> lock(packetMutex);
 	int id = packetCounter;
@@ -46,11 +46,11 @@ void Client::AddCriticalPacketToSend(const CustomUDPPacket& packet, sf::IpAddres
 
 	pendingPacketsToSend.emplace(id, CriticalPacket(packetCopy, id, targetAdress, port));
 
-	PACKET_MANAGER.SendPacketToClient(packetCopy, targetAdress, port);
-
 	std::cout << id <<std::endl;
 
 	packetCounter++;
+
+	return packetCopy; // Return the modified packet with the ID added
 }
 
 void Client::AddPositionPacket(int movementId, int x, int y)

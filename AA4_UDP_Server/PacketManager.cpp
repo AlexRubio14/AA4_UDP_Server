@@ -136,8 +136,10 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 			return; // Player not found, ignore the packet
 		}
 		std::shared_ptr<Client> client = it->second;
+
 		CustomUDPPacket startShootPacket(UdpPacketType::CRITIC, RECEIVE_START_SHOOT, client->GetId());
-		client->GetOpponentClient()->SendPacketToOpponent(startShootPacket);
+		CustomUDPPacket newPacket = client->GetOpponentClient()->AddCriticalPacketToSend(startShootPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+		SendPacketToClient(newPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
 		});
 
 	EVENT_MANAGER.UDPSubscribe(SEND_STOP_SHOOT, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
@@ -149,10 +151,11 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 		}
 		std::shared_ptr<Client> client = it->second;
 		CustomUDPPacket stopShootPacket(UdpPacketType::CRITIC, RECEIVE_STOP_SHOOT, client->GetId());
-		client->GetOpponentClient()->SendPacketToOpponent(stopShootPacket);
+		CustomUDPPacket newPacket = client->GetOpponentClient()->AddCriticalPacketToSend(stopShootPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+		SendPacketToClient(newPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
 		});
 
-	EVENT_MANAGER.UDPSubscribe(RESPAWN, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+	EVENT_MANAGER.UDPSubscribe(SEND_RESPAWN, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
 		auto it = inGameClients.find(packet.playerId);
 		if (it == inGameClients.end())
 		{
@@ -160,7 +163,7 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 			return; // Player not found, ignore the packet
 		}
 
-		int criticalId, movementId;
+		int criticalId, movementId, lives;
 		bool value;
 		float x, y;
 
@@ -169,6 +172,7 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 		packet.ReadVariable(movementId, packet.payloadOffset);
 		packet.ReadVariable(x, packet.payloadOffset);
 		packet.ReadVariable(y, packet.payloadOffset);
+		packet.ReadVariable(lives, packet.payloadOffset);
 
 		std::shared_ptr<Client> client = it->second;
 		if (value) {
@@ -176,6 +180,13 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 		} else {
 			client->GetOpponentClient()->Respawn(movementId, x, y);
 		}
+
+		CustomUDPPacket stopShootPacket(UdpPacketType::CRITIC, RECEIVE_RESPAWN, client->GetId());
+		CustomUDPPacket newPacket = client->GetOpponentClient()->AddCriticalPacketToSend(stopShootPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+		newPacket.WriteVariable(value);
+		newPacket.WriteVariable(lives);
+		std::cout << "las vidas del jugador son:" << criticalId << " " << value<< " " << movementId << " " << x << " " << y << " " << lives << std::endl;
+		SendPacketToClient(newPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
 
 		});
 }
