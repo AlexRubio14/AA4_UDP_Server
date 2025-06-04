@@ -51,6 +51,7 @@ void Room::CheckIfAllPlayersReady()
 	for (std::shared_ptr<Client> client : clients)
 	{
 		EVENT_MANAGER.UDPEmit(PacketType::START_GAME, CustomUDPPacket(UdpPacketType::CRITIC, START_GAME, client->GetId()), client->GetIp(), client->GetPort());
+		std::cout << "Packet start_game sended" << std::endl;
 	}
 }
 

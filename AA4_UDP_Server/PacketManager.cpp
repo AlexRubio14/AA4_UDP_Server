@@ -183,11 +183,22 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 
 		if (lives == 0) {
 
-			CustomUDPPacket gameOverPacket(UdpPacketType::NORMAL, END_GAME, client->GetId());
-			gameOverPacket.WriteVariable(value);
-			gameOverPacket.WriteVariable(lives);
-			SendPacketToClient(gameOverPacket, client->GetIp(), client->GetPort());
-			SendPacketToClient(gameOverPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
+			CustomUDPPacket gameOverPacketFirstPlayer(UdpPacketType::NORMAL, END_GAME, client->GetId());
+			CustomUDPPacket gameOverPacketSecondPlayer(UdpPacketType::NORMAL, END_GAME, client->GetId());
+
+			
+			if (value) {
+				gameOverPacketFirstPlayer.WriteString("You have lost the game, you have no more lives left. Better luck next time!");
+				gameOverPacketSecondPlayer.WriteString("You have won the game, your opponent has no more lives left. Congratulations!");
+
+
+			} else {
+				gameOverPacketFirstPlayer.WriteString("You have won the game, your opponent has no more lives left. Congratulations!");
+				gameOverPacketSecondPlayer.WriteString("You have lost the game, you have no more lives left. Better luck next time!");
+			}
+
+			SendPacketToClient(gameOverPacketFirstPlayer, client->GetIp(), client->GetPort());
+			SendPacketToClient(gameOverPacketSecondPlayer, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
 
 			ROOM_MANAGER.DeleteRoom(client->GetRoomId());
 		}
