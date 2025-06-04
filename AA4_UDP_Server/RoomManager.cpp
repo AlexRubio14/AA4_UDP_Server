@@ -22,17 +22,17 @@ void RoomManager::JoinRoom(std::shared_ptr<Room> room, std::shared_ptr<Client> c
 	client->SetRoomId(room->GetId());
 }
 
-void RoomManager::LeaveRoom(std::shared_ptr<Client> client)
+void RoomManager::LeaveRoom(int roomId,int playerId)
 {
-	auto roomIt = FindRoomById(client->GetRoomId());
+	auto roomIt = FindRoomById(roomId);
 
 	if (roomIt != rooms.end())
 	{
-		roomIt->get()->RemoveClient(client);
+		roomIt->get()->RemoveClient(playerId);
 	}
 	else
 	{
-		std::cerr << "Room with ID " << client->GetRoomId() << " not found." << std::endl;
+		std::cerr << "Room with ID " << playerId << " not found." << std::endl;
 	}
 }
 

@@ -21,6 +21,9 @@ class Client
 {
 private: 
 
+	sf::Clock timeoutClock;
+	bool pingSent = false;
+
 	const float MAX_SPEED_X = 150.f;
 	const float MAX_SPEED_Y = 500.f;   // depende de tu jumpForce y gravedad //Tolerancia para proabr con alex 280
 	const float TOLERANCE = 5.f;
@@ -46,6 +49,8 @@ private:
 	std::unordered_map<int, CriticalPacket> pendingPacketsToSend;
 
 	std::vector<PositionPacket> positionPackets = {};
+
+	int invalidMovementsCount = 0;
 
 	std::mutex packetMutex;
 	std::mutex positionMutex;
@@ -75,6 +80,11 @@ public:
 	void SendPacketToOpponent(CustomUDPPacket& packet);
 
 	void Respawn(int movementId, float x, float y);
+
+	void UpdateTimeout();
+	void OnPongReceived();
+
+	void Disconnect();
 
 	inline int GetRoomId() const { return roomId; }
 	inline sf::IpAddress GetIp() const { return ipAddress; }

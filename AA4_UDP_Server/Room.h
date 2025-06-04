@@ -27,6 +27,7 @@ public:
 
 	void AddClient(std::shared_ptr<Client> client);
 	void RemoveClient(std::shared_ptr<Client> client);
+	void RemoveClient(int playerId);
 
 	void CheckIfAllPlayersReady();
 

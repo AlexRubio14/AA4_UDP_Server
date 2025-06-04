@@ -139,6 +139,14 @@ void Client::ValidateClientMovements(int playerId)
 		if (speedX > MAX_SPEED_X + TOLERANCE || speedY > MAX_SPEED_Y + TOLERANCE)
 		{
 
+			if (invalidMovementsCount >= 3)
+			{
+				std::cout << "[Server] Too many invalid movements detected for player " << playerId << ". Disconnecting." << std::endl;
+				// Aquí podrías implementar la lógica para desconectar al jugador
+				Disconnect();
+				return;
+			}
+
 			// Send to player a correction packet with the last valid position
 			CustomUDPPacket correction(UdpPacketType::NORMAL, VALIDATION_BACK, playerId);
 			correction.WriteVariable(prev.movementId);
@@ -161,6 +169,8 @@ void Client::ValidateClientMovements(int playerId)
 					<< " with movement ID " << packet.movementId
 					<< " to opponent at " << opponentClient->GetIp() << ":" << opponentClient->GetPort() << std::endl;*/
 			}
+
+			invalidMovementsCount++;
 
 			positionPackets.clear();
 			positionPackets.push_back(prev);
@@ -209,4 +219,41 @@ void Client::Respawn(int movementId, float x, float y)
 	std::lock_guard lock(positionMutex);
 	positionPackets.clear();
 	positionPackets.push_back(PositionPacket(movementId, x, y));
+}
+
+void Client::UpdateTimeout()
+{
+	float elapsed = timeoutClock.getElapsedTime().asSeconds();
+
+	if (!pingSent && elapsed >= 0.5f) // 500 ms
+	{
+		// Enviar PING
+		CustomUDPPacket ping(UdpPacketType::NORMAL, PacketType::SEND_PING, playerId);
+		PACKET_MANAGER.SendPacketToClient(ping, ipAddress, port);
+
+		pingSent = true;
+		std::cout << "[Server] Sent PING to player " << playerId << std::endl;
+	}
+
+	if (elapsed >= 2) // 2000 ms sin PONG
+	{
+		std::cout << "[Server] Player " << playerId << " timed out." << std::endl;
+		Disconnect(); // método que tú definas para limpiar cliente y sala
+	}
+}
+
+void Client::OnPongReceived()
+{
+	timeoutClock.restart();
+	pingSent = false;
+}
+
+void Client::Disconnect()
+{
+	std::cout << "[Server] Disconnecting player " << playerId << std::endl;
+
+	CustomUDPPacket gameOverPacket(UdpPacketType::NORMAL, END_GAME, playerId);
+	gameOverPacket.WriteString("You won, the other player has disconnected.");
+	PACKET_MANAGER.SendPacketToClient(gameOverPacket, GetOpponentClient()->GetIp(), GetOpponentClient()->GetPort());
+	ROOM_MANAGER.LeaveRoom(roomId, playerId);
 }

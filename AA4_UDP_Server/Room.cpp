@@ -34,6 +34,21 @@ void Room::RemoveClient(std::shared_ptr<Client> client)
 		std::cerr << "Client not found in room" << std::endl;
 }
 
+void Room::RemoveClient(int playerId)
+{
+	auto clientsIt = std::remove_if(clients.begin(), clients.end(),
+		[playerId](const std::shared_ptr<Client>& client) {
+			return client->GetId() == playerId;
+		});
+	if (clientsIt != clients.end())
+	{
+		clients.erase(clientsIt, clients.end());
+		std::cout << "Client with ID: " << playerId << " removed from room" << std::endl;
+	}
+	else
+		std::cerr << "Client with ID: " << playerId << " not found in room" << std::endl;
+}
+
 void Room::CheckIfAllPlayersReady()
 {
 	for (std::shared_ptr<Client> client : clients)
@@ -85,6 +100,8 @@ void Room::Update()
 		{
 			if (clients[i])
 				clients[i]->ValidateClientMovements(i);
+
+			clients[i]->UpdateTimeout();
 		}
 	}
 }

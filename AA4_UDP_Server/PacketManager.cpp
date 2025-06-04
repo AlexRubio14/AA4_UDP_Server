@@ -177,7 +177,8 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 		std::shared_ptr<Client> client = it->second;
 		if (value) {
 			client->Respawn(movementId, x, y);
-		} else {
+		}
+		else {
 			client->GetOpponentClient()->Respawn(movementId, x, y);
 		}
 
@@ -186,13 +187,14 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 			CustomUDPPacket gameOverPacketFirstPlayer(UdpPacketType::NORMAL, END_GAME, client->GetId());
 			CustomUDPPacket gameOverPacketSecondPlayer(UdpPacketType::NORMAL, END_GAME, client->GetId());
 
-			
+
 			if (value) {
 				gameOverPacketFirstPlayer.WriteString("You have lost the game, you have no more lives left. Better luck next time!");
 				gameOverPacketSecondPlayer.WriteString("You have won the game, your opponent has no more lives left. Congratulations!");
 
 
-			} else {
+			}
+			else {
 				gameOverPacketFirstPlayer.WriteString("You have won the game, your opponent has no more lives left. Congratulations!");
 				gameOverPacketSecondPlayer.WriteString("You have lost the game, you have no more lives left. Better luck next time!");
 			}
@@ -210,27 +212,54 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 			std::cout << "las vidas del jugador son:" << criticalId << " " << value << " " << movementId << " " << x << " " << y << " " << lives << std::endl;
 			SendPacketToClient(newPacket, client->GetOpponentClient()->GetIp(), client->GetOpponentClient()->GetPort());
 		}
+	});
+	
+	EVENT_MANAGER.UDPSubscribe(RECEIVE_PING, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received RECEIVE_PING packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		std::shared_ptr<Client> client = it->second;
+		client->OnPongReceived();
 
-		});
+	});
+
+	EVENT_MANAGER.UDPSubscribe(SEND_PING, [this](CustomUDPPacket& packet, sf::IpAddress senderIpAdress, int senderPort) {
+		auto it = inGameClients.find(packet.playerId);
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received SEND_PING packet from unknown player ID: " << packet.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+		std::shared_ptr<Client> client = it->second;
+		CustomUDPPacket pongPacket(UdpPacketType::NORMAL, RECEIVE_PING, client->GetId());
+		SendPacketToClient(pongPacket, client->GetIp(), client->GetPort());
+	});
 }
 
 void PacketManager::ProcessUDPReceivedPacket(CustomUDPPacket& customPacket, sf::IpAddress senderIpAdress, int senderPort)
 {
+	auto it = inGameClients.find(customPacket.playerId);
+	if (it == inGameClients.end())
+	{
+		std::cerr << "Received critical packet from unknown player ID: " << customPacket.playerId << std::endl;
+		return; // Player not found, ignore the packet
+	}
+
+	std::shared_ptr<Client> client = it->second;
+
 	if (customPacket.udpType == UdpPacketType::CRITIC)
 	{
-		auto it = inGameClients.find(customPacket.playerId);
-		if (it == inGameClients.end())
-		{
-			std::cerr << "Received critical packet from unknown player ID: " << customPacket.playerId << std::endl;
-			return; // Player not found, ignore the packet
-		}
-
-		it->second->AddCriticalPacketIdToSet(customPacket, senderIpAdress, senderPort);
+		client->AddCriticalPacketIdToSet(customPacket, senderIpAdress, senderPort);
 		EVENT_MANAGER.UDPEmit(SEND_ACK, customPacket, senderIpAdress, senderPort);
 	}
 
 	//std::cout << static_cast<int>(customPacket.type) << std::endl;
 	EVENT_MANAGER.UDPEmit(customPacket.type, customPacket, senderIpAdress, senderPort);
+	
+
 	
 }
 
@@ -241,7 +270,7 @@ void PacketManager::SendPacketToClient(CustomUDPPacket& responsePacket, sf::IpAd
 
 	sf::Socket::Status status = serverSocket->send(responsePacket.buffer, responsePacket.bufferSize, ipAdress, port);
 
-	if(status == sf::Socket::Status::Done)
+	if (status == sf::Socket::Status::Done)
 	{
 		//std::cout << "Packet sent to " << ipAdress.toString() << ":" << port << std::endl;
 	}
@@ -249,4 +278,4 @@ void PacketManager::SendPacketToClient(CustomUDPPacket& responsePacket, sf::IpAd
 	{
 		std::cerr << "Failed to send packet to " << ipAdress.toString() << ":" << port << ". Error: " << static_cast<int>(status) << std::endl;
 	}
-}
+};

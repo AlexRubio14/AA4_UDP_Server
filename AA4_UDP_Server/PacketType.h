@@ -35,4 +35,6 @@ enum PacketType : uint8_t {
 	SEND_RESPAWN = 30,
 	RECEIVE_RESPAWN = 31,
 	END_GAME = 32,
+	SEND_PING = 33,
+	RECEIVE_PING = 34
 };
