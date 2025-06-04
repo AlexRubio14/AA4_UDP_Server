@@ -29,6 +29,12 @@ void RoomManager::LeaveRoom(int roomId,int playerId)
 	if (roomIt != rooms.end())
 	{
 		roomIt->get()->RemoveClient(playerId);
+
+		if (roomIt->get()->GetClients().empty())
+		{
+			std::cout << "Room with ID " << roomId << " is empty and will be deleted." << std::endl;
+			DeleteRoom(roomId);
+		}
 	}
 	else
 	{

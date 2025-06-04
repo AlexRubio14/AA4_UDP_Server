@@ -242,25 +242,27 @@ void PacketManager::Init(sf::UdpSocket* _serverSocket)
 void PacketManager::ProcessUDPReceivedPacket(CustomUDPPacket& customPacket, sf::IpAddress senderIpAdress, int senderPort)
 {
 	auto it = inGameClients.find(customPacket.playerId);
-	if (it == inGameClients.end())
-	{
-		std::cerr << "Received critical packet from unknown player ID: " << customPacket.playerId << std::endl;
-		return; // Player not found, ignore the packet
-	}
 
-	std::shared_ptr<Client> client = it->second;
 
 	if (customPacket.udpType == UdpPacketType::CRITIC)
 	{
+		if (it == inGameClients.end())
+		{
+			std::cerr << "Received critical packet from unknown player ID: " << customPacket.playerId << std::endl;
+			return; // Player not found, ignore the packet
+		}
+
+		std::shared_ptr<Client> client = it->second;
+
 		client->AddCriticalPacketIdToSet(customPacket, senderIpAdress, senderPort);
 		EVENT_MANAGER.UDPEmit(SEND_ACK, customPacket, senderIpAdress, senderPort);
 	}
 
+	if (it != inGameClients.end())
+		it->second->OnPongReceived();
+
 	//std::cout << static_cast<int>(customPacket.type) << std::endl;
 	EVENT_MANAGER.UDPEmit(customPacket.type, customPacket, senderIpAdress, senderPort);
-	
-
-	
 }
 
 void PacketManager::SendPacketToClient(CustomUDPPacket& responsePacket, sf::IpAddress ipAdress, int port)
