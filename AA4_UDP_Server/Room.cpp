@@ -13,6 +13,7 @@ Room::~Room()
 {
 	std::cout << "Room erased" << std::endl;
 	running = false;
+	clients.clear();
 }
 
 void Room::AddClient(std::shared_ptr<Client> client)
@@ -33,6 +34,21 @@ void Room::RemoveClient(std::shared_ptr<Client> client)
 		std::cerr << "Client not found in room" << std::endl;
 }
 
+void Room::RemoveClient(int playerId)
+{
+	auto clientsIt = std::remove_if(clients.begin(), clients.end(),
+		[playerId](const std::shared_ptr<Client>& client) {
+			return client->GetId() == playerId;
+		});
+	if (clientsIt != clients.end())
+	{
+		clients.erase(clientsIt, clients.end());
+		std::cout << "Client with ID: " << playerId << " removed from room" << std::endl;
+	}
+	else
+		std::cerr << "Client with ID: " << playerId << " not found in room" << std::endl;
+}
+
 void Room::CheckIfAllPlayersReady()
 {
 	for (std::shared_ptr<Client> client : clients)
@@ -50,6 +66,7 @@ void Room::CheckIfAllPlayersReady()
 	for (std::shared_ptr<Client> client : clients)
 	{
 		EVENT_MANAGER.UDPEmit(PacketType::START_GAME, CustomUDPPacket(UdpPacketType::CRITIC, START_GAME, client->GetId()), client->GetIp(), client->GetPort());
+		std::cout << "Packet start_game sended" << std::endl;
 	}
 }
 
@@ -83,6 +100,16 @@ void Room::Update()
 		{
 			if (clients[i])
 				clients[i]->ValidateClientMovements(i);
+
+			clients[i]->UpdateTimeout();
 		}
+	}
+}
+
+void Room::FinishRoom()
+{
+	for (std::shared_ptr<Client> client : clients)
+	{
+		delete client.get(); // Assuming clients are dynamically allocated
 	}
 }

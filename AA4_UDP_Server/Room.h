@@ -9,7 +9,7 @@ class Room
 {
 private:
 
-	const sf::Time interval = sf::seconds(0.2);
+	const sf::Time interval = sf::seconds(0.1f);
 
 	int id;
 	std::vector<std::shared_ptr<Client>> clients;
@@ -27,11 +27,14 @@ public:
 
 	void AddClient(std::shared_ptr<Client> client);
 	void RemoveClient(std::shared_ptr<Client> client);
+	void RemoveClient(int playerId);
 
 	void CheckIfAllPlayersReady();
 
 	void Start();
 	void Update();
+
+	void FinishRoom();
 
 
 	inline int GetId() const { return id; }

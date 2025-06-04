@@ -51,20 +51,8 @@ void Server::Update()
 			PACKET_MANAGER.ProcessUDPReceivedPacket(customUDPPacket, *senderIP, port);
 
 
-
-
-
-
 			ClearBuffer();
 		}
-		//else if (status == sf::Socket::Status::NotReady)
-		//{
-		//	// No hay datos ahora, dejamos descansar la CPU un poco
-		//}
-		//else
-		//{
-		//	//break; // No more packets to process
-		//}
 	}
 }
 

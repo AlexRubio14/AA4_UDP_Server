@@ -19,7 +19,7 @@ public:
 	static RoomManager& Instance();
 	std::shared_ptr<Room> CreateRoom();
 	void JoinRoom(std::shared_ptr<Room> room, std::shared_ptr<Client> client);
-	void LeaveRoom(std::shared_ptr<Client> client);
+	void LeaveRoom(int roomId, int playerId);
 	void DeleteRoom(const int roomId);
 	std::vector<std::shared_ptr<Room>>::iterator FindRoomById(const int roomId);
 
